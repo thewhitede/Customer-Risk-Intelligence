@@ -1,0 +1,40 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: customer_risk_intelligence
+      MYSQL_USER: cri_user
+      MYSQL_PASSWORD: cri_password
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./sql/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - mysql
+    ports:
+      - "8501:8501"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: customer_risk_intelligence
+      MYSQL_USER: cri_user
+      MYSQL_PASSWORD: cri_password
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_MODEL: ${HF_MODEL:-HuggingFaceH4/zephyr-7b-beta}
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./src:/app/src
+      - ./app:/app/app
+      - ./genai:/app/genai
+
+volumes:
+  mysql_data:

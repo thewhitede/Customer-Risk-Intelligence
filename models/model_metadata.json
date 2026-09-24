@@ -1,0 +1,26 @@
+{
+  "artifact_type": "production_refit",
+  "dataset_rows": 7043,
+  "feature_count": 22,
+  "rf_n_estimators": 300,
+  "rf_random_state": 42,
+  "rf_class_weight": "balanced",
+  "calibration_method": "sigmoid",
+  "calibration_cv": 5,
+  "research_reference_metrics": {
+    "accuracy": 0.7686,
+    "precision": 0.5548,
+    "recall": 0.6497,
+    "f1": 0.5985,
+    "roc_auc": 0.8208,
+    "pr_auc": 0.6069
+  },
+  "research_reference_calibration": {
+    "brier_original": 0.1562,
+    "brier_calibrated": 0.1431,
+    "roc_auc_original": 0.8208,
+    "roc_auc_calibrated": 0.8276,
+    "log_loss_original": 0.4768,
+    "log_loss_calibrated": 0.4397
+  }
+}
