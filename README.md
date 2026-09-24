@@ -89,7 +89,7 @@ python -m scripts.load_scores_to_mysql
 
 streamlit run app/streamlit_app.py
 ```
-The complete deployment workflow is documented in [`docs/deployment.md`](docs/deployment.md).
+The complete deployment workflow is documented in the [Deployment Guide](docs/deployment.md).
 The production model is a deployment-oriented refit. Its predictions are kept separate from the frozen held-out research point estimates reported above.
 
 ## MySQL
