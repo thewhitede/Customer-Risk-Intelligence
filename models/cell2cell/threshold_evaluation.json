@@ -1,0 +1,20 @@
+{
+  "threshold_selected_on_tuning_half": 0.6299100201519413,
+  "tuning_half_rows": 15523,
+  "evaluation_half_rows": 15524,
+  "evaluation_churn_rate": 0.01964699819634115,
+  "all_negative_accuracy_baseline": 0.9803530018036588,
+  "metrics": {
+    "accuracy": 0.9423473331615563,
+    "balanced_accuracy": 0.5320240338058876,
+    "precision": 0.04892966360856269,
+    "recall": 0.10491803278688525,
+    "f1": 0.0667361835245047,
+    "roc_auc": 0.6581038154420864,
+    "average_precision": 0.041861142188854915,
+    "true_negative": 14597,
+    "false_positive": 622,
+    "false_negative": 273,
+    "true_positive": 32
+  }
+}

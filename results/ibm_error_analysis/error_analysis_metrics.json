@@ -1,0 +1,49 @@
+{
+  "dataset": "data\\raw\\telco_customer_churn.csv",
+  "rows": 7043,
+  "model": "GradientBoostingClassifier",
+  "selected_threshold": 0.28,
+  "training_rows": 4225,
+  "validation_rows": 1409,
+  "test_rows": 1409,
+  "test_metrics_at_0_50": {
+    "threshold": 0.5,
+    "rows": 1409,
+    "accuracy": 0.8090844570617459,
+    "balanced_accuracy": 0.7240473791624686,
+    "precision": 0.6744186046511628,
+    "recall": 0.5427807486631016,
+    "f1": 0.6014814814814815,
+    "roc_auc": 0.8478493373634038,
+    "average_precision": 0.6735248695367888,
+    "brier_score": 0.13426431055084764,
+    "true_negative": 937,
+    "false_positive": 98,
+    "false_negative": 171,
+    "true_positive": 203
+  },
+  "test_metrics_at_selected_threshold": {
+    "threshold": 0.28,
+    "rows": 1409,
+    "accuracy": 0.7615330021291696,
+    "balanced_accuracy": 0.7659614043245757,
+    "precision": 0.5350553505535055,
+    "recall": 0.7754010695187166,
+    "f1": 0.6331877729257642,
+    "roc_auc": 0.8478493373634038,
+    "average_precision": 0.6735248695367888,
+    "brier_score": 0.13426431055084764,
+    "true_negative": 783,
+    "false_positive": 252,
+    "false_negative": 84,
+    "true_positive": 290
+  },
+  "false_positive_count_at_selected_threshold": 252,
+  "false_negative_count_at_selected_threshold": 84,
+  "notes": [
+    "Threshold was selected using validation data.",
+    "The test set was not used for threshold selection.",
+    "This analysis is exploratory because the dataset has already informed earlier model comparisons.",
+    "Segment-level results describe error patterns. They do not establish the causes of churn."
+  ]
+}

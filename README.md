@@ -76,6 +76,14 @@ Place the Telco Customer Churn dataset at:
 
 `data/raw/telco_customer_churn.csv`
 
+For the public IBM Telco benchmark, the add-on includes a downloader that verifies the source checksum and schema before saving the CSV:
+
+```powershell
+python -m scripts.download_telco_dataset
+```
+
+For a quick end-to-end run without internet access, use the fully synthetic dataset under `data/demo/` instead. See `data/README.md` and `data/demo/README.md` for source details and caveats.
+
 Then run from the project root:
 
 ```powershell
@@ -156,6 +164,40 @@ Database credentials must remain outside version control.
 The GenAI layer is optional. Set `HF_TOKEN` and `HF_MODEL` in the environment to enable model-generated business explanations. Without them, the app falls back to a deterministic, business-safe explanation template.
 
 The GenAI layer does not change the churn prediction itself and is designed to sit on top of the deterministic risk and retention logic.
+
+## Optional Deep Learning + NLP add-on
+
+This repository now includes an optional add-on that leaves the existing calibrated Random Forest production scorer and established research metrics unchanged.
+
+- `src/deep_learning.py` trains a PyTorch MLP and can compare it against the calibrated Random Forest on one shared stratified hold-out split.
+- `src/nlp.py` scores support text with a pretrained Transformer and discovers exploratory complaint topics with TF-IDF + NMF.
+- `scripts/generate_demo_data.py` generates linked synthetic demo data. Three generated CSVs are included under `data/demo/`.
+- `scripts/download_telco_dataset.py` downloads and validates the public IBM benchmark for the structured churn experiment.
+- `data/README.md` documents source attribution, data access, and the limits of the synthetic linked text data.
+- `notebooks/05_deep_learning_model_comparison.ipynb` and `notebooks/06_nlp_customer_voice.ipynb` document the experiments.
+- `docs/ADDON_INTEGRATION.md` explains setup, commands, data schemas, and safeguards.
+
+Install the optional dependencies in the active virtual environment:
+
+```powershell
+python -m pip install -r requirements-addon.txt
+```
+
+Train and compare the structured models on the included demo data:
+
+```powershell
+python -m scripts.train_deep_learning_model --data data/demo/telco_customer_churn_demo.csv --output-dir models/deep_learning
+```
+
+Run NLP sentiment and topic analysis on the included demo messages (the first run downloads the Transformer checkpoint):
+
+```powershell
+python -m scripts.analyze_support_text --input data/demo/customer_support_text_demo.csv --output-dir data/processed/customer_voice
+```
+
+Then pass the NLP-produced customer feature file to the same training command with `--text-features data/processed/customer_voice/customer_text_features.csv` to compare the structured and hybrid MLPs. The dashboard's **Model Comparison** and **Customer Voice (NLP)** tabs read these outputs. If you have not run the Transformer, the customer-voice tab displays the included precomputed synthetic demo features and clearly labels them as such.
+
+**Demo-data warning:** all data under `data/demo/` is synthetic. It is provided to exercise the workflow, not as actual customer data or valid evidence of predictive or sentiment performance. The synthetic `true_sentiment` label is not human annotated. Do not report demo metrics in a research paper or CV as production results. For research claims, use properly licensed/consented customer data, manually labelled support text, time-safe joins, and independently held-out evaluations.
 
 ## Research caveats
 

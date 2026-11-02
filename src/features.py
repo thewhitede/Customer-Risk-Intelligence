@@ -52,7 +52,7 @@ def prepare_model_frame(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     df = df.copy()
     df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce")
     X = out.drop(columns=[TARGET, ID_COL], errors="ignore")
-    return X, y.map({"No": 0, "Yes": 1}).astype(int)
+    return X, y.astype(int)
 
 
 def feature_groups(X: pd.DataFrame) -> tuple[list[str], list[str]]:
