@@ -1,0 +1,91 @@
+{
+  "dataset": "data\\raw\\telco_customer_churn.csv",
+  "rows": 7043,
+  "training_rows": 4225,
+  "validation_rows": 1409,
+  "test_rows": 1409,
+  "churn_rate": 0.2653698707936959,
+  "calibration_method": "sigmoid",
+  "threshold_selection_metric": "F1 on validation data",
+  "models": [
+    {
+      "model": "gradient_boosting_uncalibrated",
+      "validation_selected_threshold": 0.28,
+      "test_metrics_at_threshold_0_50": {
+        "threshold": 0.5,
+        "accuracy": 0.8090844570617459,
+        "balanced_accuracy": 0.7240473791624686,
+        "precision": 0.6744186046511628,
+        "recall": 0.5427807486631016,
+        "f1": 0.6014814814814815,
+        "roc_auc": 0.8478493373634038,
+        "average_precision": 0.6735248695367888,
+        "brier_score": 0.13426431055084764,
+        "log_loss": 0.4137690998932124,
+        "true_negative": 937,
+        "false_positive": 98,
+        "false_negative": 171,
+        "true_positive": 203
+      },
+      "test_metrics_at_validation_selected_threshold": {
+        "threshold": 0.28,
+        "accuracy": 0.7615330021291696,
+        "balanced_accuracy": 0.7659614043245757,
+        "precision": 0.5350553505535055,
+        "recall": 0.7754010695187166,
+        "f1": 0.6331877729257642,
+        "roc_auc": 0.8478493373634038,
+        "average_precision": 0.6735248695367888,
+        "brier_score": 0.13426431055084764,
+        "log_loss": 0.4137690998932124,
+        "true_negative": 783,
+        "false_positive": 252,
+        "false_negative": 84,
+        "true_positive": 290
+      }
+    },
+    {
+      "model": "gradient_boosting_sigmoid_calibrated",
+      "validation_selected_threshold": 0.27,
+      "test_metrics_at_threshold_0_50": {
+        "threshold": 0.5,
+        "accuracy": 0.8041163946061036,
+        "balanced_accuracy": 0.7155428970006975,
+        "precision": 0.6655405405405406,
+        "recall": 0.5267379679144385,
+        "f1": 0.5880597014925373,
+        "roc_auc": 0.8483660130718954,
+        "average_precision": 0.6771976961049788,
+        "brier_score": 0.13404088550561022,
+        "log_loss": 0.41310427560877155,
+        "true_negative": 936,
+        "false_positive": 99,
+        "false_negative": 177,
+        "true_positive": 197
+      },
+      "test_metrics_at_validation_selected_threshold": {
+        "threshold": 0.27,
+        "accuracy": 0.7601135557132718,
+        "balanced_accuracy": 0.7701180603993903,
+        "precision": 0.5323741007194245,
+        "recall": 0.7914438502673797,
+        "f1": 0.6365591397849463,
+        "roc_auc": 0.8483660130718954,
+        "average_precision": 0.6771976961049788,
+        "brier_score": 0.13404088550561022,
+        "log_loss": 0.41310427560877155,
+        "true_negative": 775,
+        "false_positive": 260,
+        "false_negative": 78,
+        "true_positive": 296
+      }
+    }
+  ],
+  "notes": [
+    "Preprocessing and feature engineering are reused from the original project.",
+    "Calibration is fitted using training data only.",
+    "The classification threshold is selected using validation data, not test data.",
+    "The dataset has informed previous experiments, so these results remain exploratory.",
+    "A lower Brier score and log loss indicate better probability quality; ROC-AUC and average precision measure ranking ability."
+  ]
+}

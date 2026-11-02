@@ -1,6 +1,8 @@
+
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import sys
 from io import BytesIO
 
@@ -16,6 +18,7 @@ from src.predict import CustomerRiskScorer
 from src.research_summary import RESEARCH_METRICS, RISK_VALIDATION, TARGETING, RETENTION_PRIORITY
 from src.explainability import explain_customer
 from src.db import load_customer_risk_scores
+from src.voice_risk_dashboard import render_customer_voice_risk_section
 
 MODEL_PATH = ROOT / "models" / "calibrated_research_rf.joblib"
 DEFAULT_DATA = ROOT / "data" / "raw" / "telco_customer_churn.csv"
@@ -210,7 +213,12 @@ with st.sidebar:
             st.error("No customer CSV available.")
             st.stop()
 
-        st.caption("CSV mode scores customers with the calibrated research Random Forest artifact.")
+        st.caption(
+            "CSV mode scores customers with the calibrated research Random Forest artifact. "
+            "For the combined customer-and-voice file, upload "
+            "`data/raw/telco_customer_risk_and_voice_master.csv`. Extra ticket columns are "
+            "kept out of the production model's feature inputs."
+        )
 
     else:
         st.caption("MySQL mode loads persisted customer risk scores; it does not rescore customers.")
@@ -247,7 +255,10 @@ if data_source == "MySQL":
         try:
             raw_customers = pd.read_csv(DEFAULT_DATA)
             quality = assess_data_quality(raw_customers)
-            customers = clean_input(raw_customers)
+            profile_columns = RAW_CUSTOMER_COLUMNS + (
+                ["Churn"] if "Churn" in raw_customers.columns else []
+            )
+            customers = clean_input(raw_customers[profile_columns].copy())
         except Exception:
             raw_customers = None
             customers = None
@@ -312,7 +323,13 @@ else:
             )
             st.stop()
 
-        customers = clean_input(raw_customers)
+        # The master customer-and-voice CSV contains extra provenance and ticket
+        # columns. The production Random Forest must receive only its original
+        # Telco customer feature schema.
+        scoring_columns = RAW_CUSTOMER_COLUMNS + (
+            ["Churn"] if "Churn" in raw_customers.columns else []
+        )
+        customers = clean_input(raw_customers[scoring_columns].copy())
 
     except Exception as exc:
         st.error(f"Could not read or validate CSV: {exc}")
@@ -354,8 +371,8 @@ filtered = scored[
 
 st.caption(f"Showing {len(filtered):,} of {len(scored):,} customers after filters.")
 
-risk_tab, customer_tab, retention_tab, research_tab = st.tabs(
-    ["Risk Overview", "Customer Scoring", "Retention Command Center", "Research Evidence"]
+risk_tab, customer_tab, retention_tab, research_tab, model_tab, voice_tab = st.tabs(
+    ["Risk Overview", "Customer Scoring", "Retention Command Center", "Research Evidence", "Model Comparison", "Customer Voice (NLP)"]
 )
 
 # -----------------------------------------------------------------------------
@@ -404,7 +421,7 @@ with risk_tab:
             )
             .properties(height=280)
         )
-        st.altair_chart(risk_count_chart, use_container_width=True)
+        st.altair_chart(risk_count_chart, width="stretch")
 
     risk_churn = (
         filtered.groupby(filtered["CalibratedRiskLevel"].astype(str), observed=False)["CalibratedChurnProbability"]
@@ -427,7 +444,7 @@ with risk_tab:
             )
             .properties(height=280)
         )
-        st.altair_chart(risk_probability_chart, use_container_width=True)
+        st.altair_chart(risk_probability_chart, width="stretch")
 
     st.markdown('<div class="section-title">Highest-value opportunities</div>', unsafe_allow_html=True)
     top_cols = [
@@ -451,7 +468,7 @@ with risk_tab:
             "Monthly charges": "${:,.2f}",
             "Revenue at risk": "${:,.2f}",
         }),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -505,7 +522,7 @@ with customer_tab:
                 elif col == "tenure" and pd.notna(value):
                     value = f"{int(value)} months"
                 profile_rows.append({"Field": label, "Value": str(value)})
-            st.dataframe(pd.DataFrame(profile_rows), hide_index=True, use_container_width=True)
+            st.dataframe(pd.DataFrame(profile_rows), hide_index=True, width="stretch")
 
         with profile_right:
             st.markdown("**Retention recommendation**")
@@ -545,7 +562,7 @@ with customer_tab:
                     "Magnitude": "{:.4f}",
                 }),
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
             )
             st.caption("SHAP explains the underlying Random Forest output; the displayed churn probability is calibrated separately. In MySQL mode, persisted scores remain the source of displayed risk values.")
         except Exception as exc:
@@ -594,7 +611,7 @@ with retention_tab:
         "High": "Priority outreach",
         "Moderate": "Standard outreach",
         "Low": "Monitor",
-    }).fillna("Review")
+    }).astype("object").fillna("Review")
 
     queue_display = queue[
         [
@@ -611,7 +628,7 @@ with retention_tab:
             "Revenue at risk": "${:,.2f}",
             "Priority score": "{:.4f}",
         }),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -653,7 +670,7 @@ with retention_tab:
         )
         .properties(height=280)
     )
-    st.altair_chart(priority_chart, use_container_width=True)
+    st.altair_chart(priority_chart, width="stretch")
     st.caption("Retention recommendations are rule-based decision-support heuristics, not causal treatment guarantees.")
 
 # -----------------------------------------------------------------------------
@@ -684,7 +701,7 @@ with research_tab:
         st.write("Risk validation")
         st.dataframe(pd.DataFrame(RISK_VALIDATION).rename(columns={
             "risk": "Risk", "customers": "Customers", "observed_churn_pct": "Observed churn %"
-        }).style.format({"Observed churn %": "{:.2f}%"}), use_container_width=True, hide_index=True)
+        }).style.format({"Observed churn %": "{:.2f}%"}), width="stretch", hide_index=True)
 
     with right:
         st.write("Targeting efficiency")
@@ -693,7 +710,7 @@ with research_tab:
             "capture_pct": "Churner capture %", "efficiency": "Efficiency"
         }).style.format({
             "Customer share %": "{:.2f}%", "Churner capture %": "{:.2f}%", "Efficiency": "{:.2f}"
-        }), use_container_width=True, hide_index=True)
+        }), width="stretch", hide_index=True)
 
     st.write("Retention-priority evidence")
     st.dataframe(pd.DataFrame(RETENTION_PRIORITY).rename(columns={
@@ -701,7 +718,7 @@ with research_tab:
         "churn_rate_pct": "Observed churn %", "revenue_at_risk": "Revenue at risk"
     }).style.format({
         "Observed churn %": "{:.2f}%", "Revenue at risk": "${:,.2f}"
-    }), use_container_width=True, hide_index=True)
+    }), width="stretch", hide_index=True)
 
     st.write("Probability-quality metrics")
     calibration = pd.DataFrame([
@@ -709,7 +726,7 @@ with research_tab:
         ["ROC-AUC", RESEARCH_METRICS["research_rf_roc_auc"], RESEARCH_METRICS["roc_auc_calibrated"]],
         ["Log Loss", RESEARCH_METRICS["log_loss_original"], RESEARCH_METRICS["log_loss_calibrated"]],
     ], columns=["Metric", "Original", "Calibrated"])
-    st.dataframe(calibration.style.format({"Original": "{:.4f}", "Calibrated": "{:.4f}"}), hide_index=True, use_container_width=True)
+    st.dataframe(calibration.style.format({"Original": "{:.4f}", "Calibrated": "{:.4f}"}), hide_index=True, width="stretch")
 
     st.markdown(
         '<div class="footer-note">'
@@ -720,3 +737,379 @@ with research_tab:
         '</div>',
         unsafe_allow_html=True,
     )
+
+# -----------------------------------------------------------------------------
+# ADD-ON TAB 5 — Deep Learning / Model Comparison
+# Reads artifacts produced by scripts/train_deep_learning_model.py. Training is
+# deliberately not triggered from the dashboard.
+# -----------------------------------------------------------------------------
+with model_tab:
+    st.markdown('<div class="section-title">Shared-split model comparison</div>', unsafe_allow_html=True)
+
+    # Prefer the newest comparison trained on real data. Synthetic demo runs
+    # remain available as a fallback, but should not silently replace the real
+    # IBM Telco experiment in the main dashboard.
+    real_data_comparisons = []
+    synthetic_comparisons = []
+
+    for candidate in (ROOT / "models").glob("*/comparison_metrics.json"):
+        try:
+            candidate_data = json.loads(candidate.read_text(encoding="utf-8"))
+            candidate_dataset = candidate_data.get("dataset") or {}
+            if not isinstance(candidate_dataset, dict):
+                candidate_dataset = {}
+
+            candidate_data_path = str(candidate_dataset.get("path") or "").replace("\\", "/").lower()
+            candidate_text_path = str(candidate_dataset.get("text_features_path") or "").replace("\\", "/").lower()
+            is_synthetic_candidate = (
+                "data/demo/" in candidate_data_path
+                or "customer_text_features_demo.csv" in candidate_text_path
+            )
+
+            if is_synthetic_candidate:
+                synthetic_comparisons.append(candidate)
+            else:
+                real_data_comparisons.append(candidate)
+        except (OSError, json.JSONDecodeError, TypeError):
+            # Ignore unreadable experiment files and continue with valid ones.
+            continue
+
+    preferred_comparisons = real_data_comparisons or synthetic_comparisons
+    comparison_path = max(
+        preferred_comparisons,
+        key=lambda candidate: candidate.stat().st_mtime,
+        default=ROOT / "models" / "deep_learning" / "comparison_metrics.json",
+    )
+
+    if not comparison_path.exists():
+        st.info(
+            "No Deep Learning comparison has been saved yet. Install requirements-addon.txt, "
+            "then run `python -m scripts.train_deep_learning_model` from the project root."
+        )
+        st.caption("This add-on does not change the existing production Random Forest scoring path.")
+    else:
+        try:
+            comparison = json.loads(comparison_path.read_text(encoding="utf-8"))
+            st.caption(
+                f"Metrics loaded from: {comparison_path.parent.relative_to(ROOT)}"
+            )
+            metrics = comparison.get("metrics", {})
+            dataset_info = comparison.get("dataset", {})
+            dataset_path_label = str(dataset_info.get("path") or "")
+            text_path_label = str(dataset_info.get("text_features_path") or "")
+            normalized_dataset_path = dataset_path_label.replace("\\", "/").lower()
+
+            if (
+                "data/demo/" in normalized_dataset_path
+                or "customer_text_features_demo.csv" in text_path_label.lower()
+            ):
+                st.warning(
+                    "SYNTHETIC DEMO EXPERIMENT: This comparison uses simulated customer data "
+                    "and/or precomputed synthetic text features. It verifies the workflow only; "
+                    "it is not evidence of real-world predictive performance or an NLP-driven churn lift."
+                )
+
+            if "customer_text_features_demo.csv" in text_path_label:
+                st.warning(
+                    "The hybrid comparison uses precomputed synthetic sentiment features, not outputs from the Transformer NLP pipeline. "
+                    "Use real, linked support text and run the NLP script before drawing conclusions about NLP value."
+                )
+
+            if not metrics:
+                st.warning("The comparison file exists but contains no metrics. Re-run the training script.")
+            else:
+                st.caption(
+                    "These add-on metrics use a new held-out split. They are separate from the frozen research results "
+                    "shown in the Research Evidence tab."
+                )
+                protocol = comparison.get("evaluation_protocol", {})
+                if protocol:
+                    st.caption(
+                        f"Rows: {protocol.get('train_rows', '—'):,} train · "
+                        f"{protocol.get('validation_rows', '—'):,} validation · "
+                        f"{protocol.get('test_rows', '—'):,} test · "
+                        f"random_state={protocol.get('random_state', '—')}"
+                    )
+
+                metric_rows = []
+                for model_name, values in metrics.items():
+                    metric_rows.append({
+                        "Model": model_name,
+                        "ROC-AUC": values.get("roc_auc"),
+                        "PR-AUC": values.get("pr_auc"),
+                        "Precision": values.get("precision"),
+                        "Recall": values.get("recall"),
+                        "F1": values.get("f1"),
+                        "Brier score ↓": values.get("brier_score"),
+                        "Log loss ↓": values.get("log_loss"),
+                    })
+
+                metric_df = pd.DataFrame(metric_rows)
+                st.dataframe(
+                    metric_df.style.format({
+                        "ROC-AUC": "{:.4f}", "PR-AUC": "{:.4f}", "Precision": "{:.4f}",
+                        "Recall": "{:.4f}", "F1": "{:.4f}", "Brier score ↓": "{:.4f}",
+                        "Log loss ↓": "{:.4f}",
+                    }, na_rep="—"),
+                    width="stretch",
+                    hide_index=True,
+                )
+                st.caption("Higher ROC-AUC / PR-AUC / F1 may be useful; lower Brier score and log loss are better. Review trade-offs rather than selecting by one metric.")
+
+                roc_frames = []
+                for model_name, curve in comparison.get("roc_curves", {}).items():
+                    fprs, tprs = curve.get("fpr", []), curve.get("tpr", [])
+                    for fpr_value, tpr_value in zip(fprs, tprs):
+                        roc_frames.append({
+                            "Model": model_name,
+                            "False positive rate": fpr_value,
+                            "True positive rate": tpr_value,
+                        })
+
+                if roc_frames:
+                    st.write("ROC curves")
+                    roc_chart = alt.Chart(pd.DataFrame(roc_frames)).mark_line().encode(
+                        x=alt.X("False positive rate:Q", scale=alt.Scale(domain=[0, 1])),
+                        y=alt.Y("True positive rate:Q", scale=alt.Scale(domain=[0, 1])),
+                        color=alt.Color("Model:N"),
+                        tooltip=["Model:N", "False positive rate:Q", "True positive rate:Q"],
+                    ).properties(height=300)
+                    st.altair_chart(roc_chart, width="stretch")
+
+                pr_frames = []
+                for model_name, curve in comparison.get("precision_recall_curves", {}).items():
+                    recalls, precisions = curve.get("recall", []), curve.get("precision", [])
+                    for recall_value, precision_value in zip(recalls, precisions):
+                        pr_frames.append({
+                            "Model": model_name,
+                            "Recall": recall_value,
+                            "Precision": precision_value,
+                        })
+
+                if pr_frames:
+                    st.write("Precision-recall curves")
+                    pr_chart = alt.Chart(pd.DataFrame(pr_frames)).mark_line().encode(
+                        x=alt.X("Recall:Q", scale=alt.Scale(domain=[0, 1])),
+                        y=alt.Y("Precision:Q", scale=alt.Scale(domain=[0, 1])),
+                        color=alt.Color("Model:N"),
+                        tooltip=["Model:N", "Recall:Q", "Precision:Q"],
+                    ).properties(height=300)
+                    st.altair_chart(pr_chart, width="stretch")
+
+                calibration_frames = []
+                for model_name, curve in comparison.get("calibration_curves", {}).items():
+                    predicted_values = curve.get("mean_predicted_probability", [])
+                    observed_values = curve.get("observed_positive_rate", [])
+                    for predicted_value, observed_value in zip(predicted_values, observed_values):
+                        calibration_frames.append({
+                            "Model": model_name,
+                            "Mean predicted probability": predicted_value,
+                            "Observed positive rate": observed_value,
+                        })
+
+                if calibration_frames:
+                    st.write("Probability calibration")
+                    calibration_df = pd.DataFrame(calibration_frames)
+                    ideal_df = pd.DataFrame({
+                        "Model": ["Perfect calibration", "Perfect calibration"],
+                        "Mean predicted probability": [0.0, 1.0],
+                        "Observed positive rate": [0.0, 1.0],
+                    })
+                    calibration_chart = alt.Chart(
+                        pd.concat([calibration_df, ideal_df], ignore_index=True)
+                    ).mark_line(point=True).encode(
+                        x=alt.X("Mean predicted probability:Q", scale=alt.Scale(domain=[0, 1])),
+                        y=alt.Y("Observed positive rate:Q", scale=alt.Scale(domain=[0, 1])),
+                        color=alt.Color("Model:N"),
+                        tooltip=["Model:N", "Mean predicted probability:Q", "Observed positive rate:Q"],
+                    ).properties(height=300)
+                    st.altair_chart(calibration_chart, width="stretch")
+
+        except Exception as exc:
+            st.error(f"Could not read the Deep Learning comparison file: {exc}")
+
+# -----------------------------------------------------------------------------
+# ADD-ON TAB 6 — Customer Voice / NLP
+# Reads aggregated data from scripts/analyze_support_text.py. Raw ticket text is
+# not rendered in this dashboard tab.
+# -----------------------------------------------------------------------------
+with voice_tab:
+    st.markdown('<div class="section-title">Customer voice and support sentiment</div>', unsafe_allow_html=True)
+
+    # Prefer the dedicated master-dataset output so the existing demo NLP
+    # artifacts remain untouched. Fall back to the prior customer_voice folder.
+    voice_path = (
+        ROOT / "data" / "processed" / "customer_voice_master" / "customer_text_features.csv"
+    )
+    using_precomputed_synthetic_voice_demo = False
+
+    if not voice_path.exists():
+        previous_voice_path = (
+            ROOT / "data" / "processed" / "customer_voice" / "customer_text_features.csv"
+        )
+        if previous_voice_path.exists():
+            voice_path = previous_voice_path
+
+    if not voice_path.exists():
+        demo_voice_path = ROOT / "data" / "demo" / "customer_text_features_demo.csv"
+        if demo_voice_path.exists():
+            voice_path = demo_voice_path
+            using_precomputed_synthetic_voice_demo = True
+
+    if not voice_path.exists():
+        st.info(
+            "NLP aggregates are not available yet. Add a customer support CSV at "
+            "`data/raw/customer_support_text.csv` with customerID, ticket_text, and ideally ticket_date, "
+            "then run `python -m scripts.analyze_support_text`."
+        )
+        st.caption(
+            "The default sentiment model is general English sentiment, not telecom-specific. "
+            "Validate it on manually labelled support messages before operational use."
+        )
+    else:
+        try:
+            voice_df = pd.read_csv(voice_path)
+            required_voice = {
+                "customerID", "ticket_count", "negative_ticket_count", "negative_ticket_ratio",
+                "mean_sentiment_score", "latest_sentiment_score"
+            }
+
+            missing_voice = sorted(required_voice - set(voice_df.columns))
+
+            if missing_voice:
+                st.warning(f"The NLP aggregate file is missing expected columns: {missing_voice}")
+            elif voice_df.empty:
+                st.info("The customer-voice aggregate file has no rows.")
+            else:
+                customer_ids = voice_df["customerID"].dropna().astype(str).str.upper()
+                synthetic_ticket_ids = (
+                    not customer_ids.empty
+                    and customer_ids.str.startswith(("DEMO", "SYNTH")).any()
+                )
+
+                if using_precomputed_synthetic_voice_demo:
+                    st.warning(
+                        "SYNTHETIC DEMO FEATURES: This view is using precomputed simulated "
+                        "customer aggregates. They were not generated by running the Transformer "
+                        "on real customer messages and must not be treated as real customer evidence."
+                    )
+                elif synthetic_ticket_ids:
+                    st.warning(
+                        "SYNTHETIC CUSTOMER VOICE INPUT: The Transformer sentiment model was run "
+                        "on generated support messages for synthetic customers. The displayed scores "
+                        "are model predictions on synthetic text, not genuine customer feedback or "
+                        "evidence of churn improvement."
+                    )
+
+                total_tickets = int(
+                    pd.to_numeric(
+                        voice_df["ticket_count"],
+                        errors="coerce",
+                    ).fillna(0).sum()
+                )
+
+                avg_negative = float(
+                    pd.to_numeric(
+                        voice_df["negative_ticket_ratio"],
+                        errors="coerce",
+                    ).fillna(0).mean()
+                )
+
+                sentiment_values = pd.to_numeric(
+                    voice_df["mean_sentiment_score"],
+                    errors="coerce",
+                ).dropna()
+
+                mean_sentiment = (
+                    float(sentiment_values.mean())
+                    if not sentiment_values.empty
+                    else float("nan")
+                )
+
+                c1, c2, c3 = st.columns(3)
+
+                with c1:
+                    metric_card(
+                        "Customers with tickets",
+                        f"{voice_df['customerID'].nunique():,}",
+                        "Customer-level aggregates",
+                    )
+
+                with c2:
+                    metric_card(
+                        "Support interactions",
+                        f"{total_tickets:,}",
+                        "Messages included in this export",
+                    )
+
+                with c3:
+                    metric_card(
+                        "Average negative-ticket ratio",
+                        f"{avg_negative:.1%}",
+                        "Model-derived indicator, not ground truth",
+                    )
+
+                st.caption(
+                    f"Mean aggregate sentiment score: {mean_sentiment:.3f} "
+                    "(range −1 to +1 where available)."
+                )
+
+                hist_data = voice_df[["negative_ticket_ratio"]].copy()
+                hist_data["negative_ticket_ratio"] = pd.to_numeric(
+                    hist_data["negative_ticket_ratio"],
+                    errors="coerce",
+                )
+                hist_data = hist_data.dropna()
+
+                if not hist_data.empty:
+                    st.write("Distribution of negative-ticket ratios")
+                    histogram = alt.Chart(hist_data).mark_bar().encode(
+                        x=alt.X(
+                            "negative_ticket_ratio:Q",
+                            bin=alt.Bin(maxbins=20),
+                            title="Negative-ticket ratio",
+                        ),
+                        y=alt.Y("count():Q", title="Customers"),
+                        tooltip=[
+                            alt.Tooltip("count():Q", title="Customers")
+                        ],
+                    ).properties(height=260)
+
+                    st.altair_chart(
+                        histogram,
+                        width="stretch",
+                    )
+
+                st.write("Customers with highest negative-ticket ratio")
+
+                display_cols = [
+                    "customerID", "ticket_count", "negative_ticket_count",
+                    "negative_ticket_ratio", "mean_sentiment_score",
+                    "latest_sentiment_score",
+                ]
+
+                top_voice = voice_df.sort_values(
+                    ["negative_ticket_ratio", "ticket_count"],
+                    ascending=[False, False],
+                )[display_cols].head(20)
+
+                st.dataframe(
+                    top_voice.style.format({
+                        "negative_ticket_ratio": "{:.1%}",
+                        "mean_sentiment_score": "{:.3f}",
+                        "latest_sentiment_score": "{:.3f}",
+                    }),
+                    width="stretch",
+                    hide_index=True,
+                )
+
+                st.caption(
+                    "Use these signals for review and prioritization only. "
+                    "Automated sentiment may be wrong and should not be the "
+                    "sole basis for an individual customer decision."
+                )
+
+        except Exception as exc:
+            st.error(f"Could not read the customer-voice features: {exc}")
+
+    render_customer_voice_risk_section(ROOT)

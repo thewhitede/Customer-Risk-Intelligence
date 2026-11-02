@@ -16,3 +16,35 @@ Thumbs.db
 .streamlit/secrets.toml
 .agents/skills/developing-with-streamlit
 .claude/skills/developing-with-streamlit
+
+# Generated Deep Learning / NLP add-on artifacts (keep customer data out of Git)
+models/deep_learning/
+data/processed/customer_voice/
+
+
+# ==========================================
+# Customer Risk Intelligence - Local Artifacts
+# ==========================================
+
+# Local datasets and generated processing outputs
+/data/raw/
+/data/processed/
+
+# All trained model binaries and checkpoints
+*.joblib
+*.pkl
+*.pickle
+*.pt
+*.pth
+*.cbm
+*.h5
+*.keras
+*.safetensors
+
+# Temporary backups
+*.bak
+*.backup
+*.before_width_update.bak
+
+# Local backup archive
+/archive/legacy_backup/
