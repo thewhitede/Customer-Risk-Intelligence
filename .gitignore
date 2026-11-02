@@ -29,7 +29,6 @@ data/processed/customer_voice/
 # Local datasets and generated processing outputs
 /data/raw/
 /data/processed/
-/data/demo/
 
 # All trained model binaries and checkpoints
 *.joblib
