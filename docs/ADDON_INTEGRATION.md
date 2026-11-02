@@ -9,7 +9,7 @@ Extract the add-on ZIP at the root of your existing `Customer-Risk-Intelligence`
 Then install the extra dependencies inside the project's existing virtual environment:
 
 ```powershell
-python -m pip install -r requirements-addon.txt
+python -m pip install -r requirements.txt
 ```
 
 PyTorch installation may need a platform-specific wheel. If the command fails for `torch`, use the official selector at https://pytorch.org/get-started/locally/ and then install `transformers`.
